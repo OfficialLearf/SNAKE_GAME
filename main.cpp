@@ -64,7 +64,7 @@ private:
     Texture2D texture{};
 public:
     Food(){
-        const Image image = LoadImage("/SNAKE_GAME/food.png");
+        const Image image = LoadImage("food.png");
         texture = LoadTextureFromImage(image);
         UnloadImage(image);
         position = GenerateRandomPosition();
@@ -101,8 +101,9 @@ class Game {
 private:
     Snake snake = Snake();
     Food food = Food();
-    bool running = false;
+    bool running {false};
     int score {0};
+    bool directionChanged {false};
 public:
     void Draw() const {
         food.Draw();
@@ -110,8 +111,9 @@ public:
     }
     void Update() {
         if (!running) return;
-        CheckBodyCollision();
+        directionChanged = false;
         CheckWallCollision();
+        CheckBodyCollision();
         if (CheckCollision()) {
             snake.Update(true);
         }
@@ -126,17 +128,19 @@ public:
         return false;
     }
     void CheckWallCollision() {
-        if (snake.getBody().front().x == static_cast<float>(cellCount) || snake.getBody().front().x == -1 ||
-            snake.getBody().front().y == -1 || snake.getBody().front().y == static_cast<float>(cellCount)) {
+        if (const auto [x, y] = Vector2Add(snake.getBody().front(),snake.getDirection()); x == static_cast<float>(cellCount) || x == -1 || y == -1 || y == static_cast<float>(cellCount)) {
             GameOver();
         }
     }
     void CheckBodyCollision() {
-        const Vector2 newPosition = Vector2Add(snake.getBody().front(),snake.getDirection());
+        const Vector2 newPosition = Vector2Add(snake.getBody().front(), snake.getDirection());
         const auto& body = snake.getBody();
-        if (body.size() < 5) return;
-        if (auto innerBodyView = body | std::views::drop(1) | std::views::take(body.size() - 2); std::ranges::find(innerBodyView, newPosition) != innerBodyView.end()) {
-            GameOver();
+        if (body.size() <5) return;
+        for (size_t i = 1; i < body.size(); i++) {
+            if (Vector2Equals(newPosition, body[i])) {
+                GameOver();
+                return;
+            }
         }
     }
     void GameOver() {
@@ -149,19 +153,20 @@ public:
         return score;
     }
     void HandleInput() {
+        if (directionChanged) return;
         Vector2 tentative = snake.getDirection();
-        int key;
-        while ((key = GetKeyPressed()) != 0) {
+        if (const int key = GetKeyPressed(); key != 0) {
             switch (key) {
                 case KEY_RIGHT: case KEY_D: tentative = {1, 0}; running = true; break;
-                case KEY_LEFT:  case KEY_A: tentative = {-1, 0}; running = true;break;
-                case KEY_UP:    case KEY_W: tentative = {0, -1}; running = true;break;
+                case KEY_LEFT:  case KEY_A: tentative = {-1, 0}; running = true; break;
+                case KEY_UP:    case KEY_W: tentative = {0, -1}; running = true; break;
                 case KEY_DOWN:  case KEY_S: tentative = {0, 1}; running = true; break;
                 default: break;
             }
-        }
-        if (!(tentative.x == -snake.getDirection().x && tentative.y == -snake.getDirection().y)) {
-            snake.setDirection(tentative);
+            if (!(tentative.x == -snake.getDirection().x && tentative.y == -snake.getDirection().y)) {
+                snake.setDirection(tentative);
+                directionChanged = true;
+            }
         }
     }
 };
